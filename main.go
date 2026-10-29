@@ -36,8 +36,8 @@ func getStatusCode(url string) (int, int64, error) {
 	return statusCode, duration.Milliseconds(), nil
 }
 
-func getStatusUD(statusCode int) string {
-	if statusCode > 399 {
+func getStatusUD(statusCode int, err error) string {
+	if statusCode > 399 || err != nil || statusCode < 200 {
 		return "down"
 	}
 	return "up"
@@ -45,8 +45,9 @@ func getStatusUD(statusCode int) string {
 
 func main() {
 	url := "https://nosuchsite12345.ru"
-	statusCode, duration, _ := getStatusCode(url)
-	state := getStatusUD(statusCode)
+	statusCode, duration, err := getStatusCode(url)
+
+	state := getStatusUD(statusCode, err)
 
 	result := WebSite{
 		ID:             1,
