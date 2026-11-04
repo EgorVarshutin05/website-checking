@@ -5,10 +5,11 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
+	"github.com/EgorVarshutin05/website-checking/internal/checker"
 	"github.com/EgorVarshutin05/website-checking/internal/handler"
 	"github.com/EgorVarshutin05/website-checking/internal/repository"
+	"github.com/EgorVarshutin05/website-checking/internal/service"
 )
 
 func main() {
@@ -17,7 +18,7 @@ func main() {
 		log.Fatal("DATABASE_URL не задан")
 	}
 
-	pool, err := repository.NewPostrgrePool(context.Background(), databaseURL)
+	pool, err := repository.NewPostrgresPool(context.Background(), databaseURL)
 	if err != nil {
 		log.Fatalf("Ошибка подключения к PostgreSQL: %v", err)
 	}
@@ -25,14 +26,19 @@ func main() {
 
 	log.Println("Подключение к PostgreSQL установлено")
 
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
+	client := checker.NewSecureHTTPClient()
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /api/v1/sites", func(w http.ResponseWriter, r *http.Request) {
-		handler.GetSitesHandler(w, r, client)
+	monitorService := service.NewMonitorService(pool, client)
+	siteHandler := handler.NewSiteHandler(monitorService)
+
+	mux.HandleFunc("GET /api/v1/sites", siteHandler.GetSites)
+
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./web"))))
+
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./web/index.html")
 	})
 
 	log.Println("Сервер запущен на :8080")
