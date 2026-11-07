@@ -18,6 +18,9 @@ const $ = (s) => document.querySelector(s);
 const els = {
   list: $('#list'), summary: $('#summary'), updatedAt: $('#updatedAt'), demo: $('#demoBadge'),
   refresh: $('#refreshBtn'), filter: $('#filterBtn'),
+  addSite: $('#addSiteBtn'), createDialog: $('#createDialog'), createForm: $('#createSiteForm'),
+  siteName: $('#siteName'), siteUrl: $('#siteUrl'), createError: $('#createError'),
+  submitCreate: $('#submitCreateBtn'), closeCreate: $('#closeCreateBtn'), cancelCreate: $('#cancelCreateBtn'),
   modal: $('#modal'), mDot: $('#mDot'), mTitle: $('#mTitle'), mUrl: $('#mUrl'),
   mUptime: $('#mUptime'), mAvg: $('#mAvg'), mIncidents: $('#mIncidents'),
   chart: $('#chart'), strip: $('#strip'),
@@ -59,6 +62,70 @@ async function fetchSites() {
 function fetchHistory(id) {
   if (state.demo) return mock.history(id);
   return request(`/sites/${encodeURIComponent(id)}/history?period=24h`);
+}
+
+/* =========================================================
+   Создание сайта
+   ========================================================= */
+function showCreateError(message) {
+  els.createError.textContent = message;
+  els.createError.hidden = !message;
+}
+
+function openCreateDialog() {
+  if (state.demo || !els.createDialog || els.createDialog.open) return;
+  showCreateError('');
+  els.createDialog.showModal();
+  els.siteName.focus();
+}
+
+function closeCreateDialog() {
+  if (els.submitCreate.disabled) return; // не закрываем во время отправки
+  els.createDialog.close();
+  els.createForm.reset();
+  showCreateError('');
+}
+
+async function submitCreateSite(e) {
+  e.preventDefault();
+  if (state.demo || els.submitCreate.disabled) return;
+
+  const name = els.siteName.value.trim();
+  const url = els.siteUrl.value.trim();
+  if (!name || !url) {
+    showCreateError('Заполните название и URL сайта.');
+    return;
+  }
+
+  showCreateError('');
+  els.submitCreate.disabled = true;
+  els.submitCreate.textContent = 'Добавление…';
+
+  try {
+    const response = await fetch(`${CONFIG.API_BASE}/sites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ name, url }),
+    });
+
+    if (!response.ok) {
+      const message = (await response.text()).trim();
+      if (response.status === 409) throw new Error('Этот URL уже добавлен.');
+      if (response.status === 400) throw new Error(message || 'Проверьте название и URL.');
+      throw new Error('Не удалось создать сайт. Ошибка сервера (' + response.status + ').');
+    }
+
+    els.createDialog.close();
+    els.createForm.reset();
+    await loadSites();
+  } catch (err) {
+    showCreateError(err instanceof TypeError
+      ? 'Не удалось связаться с сервером.'
+      : err.message || 'Не удалось добавить сайт.');
+  } finally {
+    els.submitCreate.disabled = false;
+    els.submitCreate.textContent = 'Добавить';
+  }
 }
 
 /* =========================================================
@@ -144,6 +211,8 @@ async function loadSites() {
     els.updatedAt.textContent = 'Нет связи с сервером, показаны данные на ' + new Date().toLocaleTimeString('ru-RU');
   } finally {
     els.demo.hidden = !state.demo;
+    els.addSite.disabled = state.demo;
+    els.addSite.title = state.demo ? 'Создание сайта недоступно в демо-режиме' : 'Добавить сайт';
     setTimeout(() => els.refresh.classList.remove('is-loading'), 400);
   }
 }
@@ -444,6 +513,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 els.refresh.addEventListener('click', loadSites);
+
+els.addSite.addEventListener('click', openCreateDialog);
+els.closeCreate.addEventListener('click', closeCreateDialog);
+els.cancelCreate.addEventListener('click', closeCreateDialog);
+els.createForm.addEventListener('submit', submitCreateSite);
 
 els.filter.addEventListener('click', () => {
   state.onlyDown = !state.onlyDown;

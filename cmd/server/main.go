@@ -34,6 +34,7 @@ func main() {
 	siteHandler := handler.NewSiteHandler(monitorService)
 
 	mux.HandleFunc("GET /api/v1/sites", siteHandler.GetSites)
+	mux.HandleFunc("POST /api/v1/sites", siteHandler.CreateSite)
 
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./web"))))
 

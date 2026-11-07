@@ -15,6 +15,7 @@
       </div>
       <div class="summary" id="summary"></div>
       <div class="actions">
+        <button class="btn btn--primary" id="addSiteBtn" type="button">+ Добавить сайт</button>
         <button class="btn" id="filterBtn" type="button">Только лежащие</button>
         <button class="btn btn--icon" id="refreshBtn" type="button" aria-label="Обновить" title="Обновить">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
@@ -64,6 +65,30 @@
       <div class="strip-legend"><span>24 ч назад</span><span>сейчас</span></div>
     </div>
   </div>
+
+
+  <!-- Отдельная форма создания сайта; история остаётся в прежнем модальном окне -->
+  <dialog class="create-dialog" id="createDialog" aria-labelledby="createTitle">
+    <form id="createSiteForm">
+      <div class="create-dialog__head">
+        <h2 id="createTitle">Добавить сайт</h2>
+        <button class="modal__close create-dialog__close" type="button" id="closeCreateBtn" aria-label="Закрыть">×</button>
+      </div>
+      <label class="field" for="siteName">
+        <span>Название</span>
+        <input id="siteName" name="name" type="text" maxlength="255" autocomplete="off" placeholder="Например, Мой блог" required>
+      </label>
+      <label class="field" for="siteUrl">
+        <span>URL</span>
+        <input id="siteUrl" name="url" type="url" maxlength="2048" spellcheck="false" autocomplete="url" placeholder="https://example.com" required>
+      </label>
+      <p class="form-error" id="createError" role="alert" hidden></p>
+      <div class="create-dialog__actions">
+        <button class="btn" id="cancelCreateBtn" type="button">Отмена</button>
+        <button class="btn btn--primary" id="submitCreateBtn" type="submit">Добавить</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="/static/app.js"></script>
 </body>

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"github.com/EgorVarshutin05/website-checking/internal/checker"
 	"github.com/EgorVarshutin05/website-checking/internal/domain"
 	"github.com/EgorVarshutin05/website-checking/internal/repository"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -39,13 +41,6 @@ func (s *MonitorService) GetSites(ctx context.Context) ([]domain.WebSite, error)
 		wg.Go(
 			func() {
 				statusCode, duration, err := checker.GetStatusCode(ctx, s.client, site.Url)
-				// log.Printf(
-				// 	"Проверка сайта: url=%s, statusCode=%d, duration=%dms, err=%v",
-				// 	site.Url,
-				// 	statusCode,
-				// 	duration,
-				// 	err,
-				// )
 
 				sites[i].Status = GetStatusUD(statusCode, err)
 				sites[i].ResponseTimeMs = duration
@@ -61,19 +56,31 @@ func (s *MonitorService) GetSites(ctx context.Context) ([]domain.WebSite, error)
 
 func (s *MonitorService) CreateSite(ctx context.Context, req domain.CreateSiteRequest) (domain.WebSite, error) {
 	name := strings.TrimSpace(req.Name)
-	if len(name) == 0 {
-		return domain.WebSite{}, errors.New("название сайта не может быть пустым")
+	if name == "" {
+		return domain.WebSite{}, fmt.Errorf("%w: название сайта не может быть пустым", ErrInvalidSite)
 	}
 	req.Name = name
 
 	url := strings.TrimSpace(req.URL)
-	if len(url) == 0 {
-		return domain.WebSite{}, errors.New("ссылка не может быть пустой")
+	if url == "" {
+		return domain.WebSite{}, fmt.Errorf("%w: ссылка не может быть пустой", ErrInvalidSite)
 	}
 	req.URL = url
 
+	if err := ValidateSiteURL(req.URL); err != nil {
+		return domain.WebSite{}, fmt.Errorf("%w: %v", ErrInvalidSite, err)
+	}
+
 	newSite, err := repository.CreateSite(ctx, s.pool, req)
 	if err != nil {
+		var pgErr *pgconn.PgError
+
+		if errors.As(err, &pgErr) &&
+			pgErr.Code == "23505" &&
+			pgErr.ConstraintName == "sites_url_key" {
+			return domain.WebSite{}, ErrSiteExists
+		}
+
 		return domain.WebSite{}, err
 	}
 
